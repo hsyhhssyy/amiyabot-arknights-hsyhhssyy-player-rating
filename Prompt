@@ -1,0 +1,220 @@
+character_data是一个Dict的List,其结构如下:
+# 数组元素范例
+# {
+#     "charId": "char_002_amiya",
+#     "skinId": "char_002_amiya@test#1",
+#     "level": 80,
+#     "evolvePhase": 2,
+#     "potentialRank": 5,
+#     "mainSkillLvl": 7,
+#     "skills": [
+#         {
+#             "id": "skcom_magic_rage[3]",
+#             "specializeLevel": 3
+#         },
+#         {
+#             "id": "skchr_amiya_2",
+#             "specializeLevel": 3
+#         },
+#         {
+#             "id": "skchr_amiya_3",
+#             "specializeLevel": 3
+#         }
+#     ],
+#     "equip": [
+#         {
+#             "id": "uniequip_001_amiya",
+#             "level": 1
+#         },
+#         {
+#             "id": "uniequip_002_amiya",
+#             "level": 3
+#         }
+#     ],
+#     "favorPercent": 200,
+#     "defaultSkillId": "skchr_amiya_2",
+#     "gainTime": 1557233319,
+#     "defaultEquipId": "uniequip_002_amiya"
+# }
+
+现在请遍历这个List并计算一个分数，规则如下
+evolvePhase<2 时，不计分
+evolvePhase>=2 时 分数为 100 + level + (每个skills的specializeLevel x 10) + 每个equip的level x 10
+
+
+
+@bot.on_message(keywords=['给我打分'],level=5)
+async def _(data: Message):
+    
+    # 先获取Token并获取干员数据
+
+    if 'amiyabot-skland' not in main_bot.plugins:
+        return Chain(data).text('没有安装/启用森空岛插件，无法获取玩家数据')
+    
+    plugin = main_bot.plugins['amiyabot-skland']
+
+    token: Optional[str] = await plugin.get_token(data.user_id)
+
+    if not token:
+        return Chain(data).text('博士，您尚未绑定 Token，请发送 “兔兔绑定” 进行查看绑定说明。')
+
+    eula = f'您确定要计算您的干员分数吗，回复“确定”开始查询您的干员练度并计算？使用该功能将默认允许我们匿名上传您的干员练度数据（不包含任何可以识别您的个人信息）到我们的服务器来统计干员培养数据从而改进计分规则。'
+
+    wait = await data.wait(Chain(data).text(eula))
+
+    if not wait or wait != "确定":
+        return
+
+    # 从这里开始异步执行并且不等待
+
+    user_info: Optional[dict] = await plugin.get_user_info(token)
+
+    character_uid = user_info['gameStatus']['uid']
+    
+    character_info: Optional[dict] = await plugin.get_character_info(token,character_uid)
+
+    character_data = character_info['chars']
+
+    # 开始算分
+    # 数组元素范例
+    # {
+    #     "charId": "char_002_amiya",
+    #     "skinId": "char_002_amiya@test#1",
+    #     "level": 80,
+    #     "evolvePhase": 2,
+    #     "potentialRank": 5,
+    #     "mainSkillLvl": 7,
+    #     "skills": [
+    #         {
+    #             "id": "skcom_magic_rage[3]",
+    #             "specializeLevel": 3
+    #         },
+    #         {
+    #             "id": "skchr_amiya_2",
+    #             "specializeLevel": 3
+    #         },
+    #         {
+    #             "id": "skchr_amiya_3",
+    #             "specializeLevel": 3
+    #         }
+    #     ],
+    #     "equip": [
+    #         {
+    #             "id": "uniequip_001_amiya",
+    #             "level": 1
+    #         },
+    #         {
+    #             "id": "uniequip_002_amiya",
+    #             "level": 3
+    #         }
+    #     ],
+    #     "favorPercent": 200,
+    #     "defaultSkillId": "skchr_amiya_2",
+    #     "gainTime": 1557233319,
+    #     "defaultEquipId": "uniequip_002_amiya"
+    # }
+
+    total_scores = {}
+    for character in character_data:
+        char_id = character["charId"]
+        total_scores[char_id] = calculate_score(character)
+
+    total_points = sum(total_scores.values())
+    average_points = total_points / len(total_scores) if total_scores else 0
+
+    await data.send(Chain(data,at=False).text(f'博士，您的Box总计有{len(total_scores)}位干员，总分为：{total_points}。该分数仅供娱乐，请不要用这个分数来评判博士呦~~')
+
+    return
+
+这段代码的后半部分需要改为异步函数且不等待,请尝试改写
+
+
+
+def calculate_score(character):
+    score = 0
+    
+    if character["evolvePhase"] >= 2:
+        score += 100
+        score += character["level"]
+        
+        for skill in character["skills"]:
+            score += skill["specializeLevel"] * 10
+
+        for equipment in character["equip"]:
+            score += equipment["level"] * 10
+
+    return score
+
+@bot.on_message(keywords=['给我打分'],level=5)
+async def _(data: Message):
+    
+    # 先获取Token并获取干员数据
+
+    if 'amiyabot-skland' not in main_bot.plugins:
+        return Chain(data).text('没有安装/启用森空岛插件，无法获取玩家数据')
+    
+    plugin = main_bot.plugins['amiyabot-skland']
+
+    token: Optional[str] = await plugin.get_token(data.user_id)
+
+    if not token:
+        return Chain(data).text('博士，您尚未绑定 Token，请发送 “兔兔绑定” 进行查看绑定说明。')
+
+    eula = f'您确定要计算您的干员分数吗，回复“确定”开始查询您的干员练度并计算？使用该功能将默认允许我们匿名上传您的干员练度数据（不包含任何可以识别您的个人信息）到我们的服务器来统计干员培养数据从而改进计分规则。'
+
+    wait = await data.wait(Chain(data).text(eula))
+
+    if not wait or wait != "确定":
+        return
+
+    user_info: Optional[dict] = await plugin.get_user_info(token)
+
+    character_uid = user_info['gameStatus']['uid']
+    character_info: Optional[dict] = await plugin.get_character_info(token, character_uid)
+
+    character_data = character_info['chars']
+
+    total_scores = {}
+    for character in character_data:
+        char_id = character["charId"]
+        total_scores[char_id] = calculate_score(character)
+
+    total_points = sum(total_scores.values())
+    average_points = total_points / len(total_scores) if total_scores else 0
+
+    await data.send(Chain(data,at=False).text(f'博士，您的Box总计有{len(total_scores)}位干员，总分为：{total_points}。计分规则更新于2023-08-07，该分数仅供娱乐，请不要用这个分数来评判博士呦~~'))
+
+
+这段代码是输出总分的，能否改为输出“总分为：{total_points}，其中干员等级分{XX}，干员专精分{XX}，干员模组分{XX}”
+
+
+
+def calculate_score(character):
+    score_dict = {
+        "total": 0,
+        "deep":0,
+        "level": 0,
+        "specialize": 0,
+        "equip": 0
+    }
+    
+    if character["evolvePhase"] >= 2:
+        score_dict["deep"] = 100
+
+        score_dict["level"] = character["level"]
+        
+        for skill in character["skills"]:
+            score_dict["specialize"] += skill["specializeLevel"] * 10
+        
+        for equipment in character["equip"]:
+            score_dict["equip"] += equipment["level"] * 10
+            
+        score_dict["total"] = score_dict["deep"] + score_dict["level"] + score_dict["specialize"] +  score_dict["equip"]
+
+    return score_dict
+
+请修改积分规则为:
+干员基础分: 100
+干员等级分：每1级1分
+干员专精分：每个技能 专1：20分 专2：60分，专3:100分
+干员模组分：每个模组 1级：10分 2级：30分，3级：50分
